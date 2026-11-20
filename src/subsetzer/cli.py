@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from .chunking import make_chunks
-from .engine import DEFAULT_API_URL, translate_range
+from .engine import DEEPSEEK_API_URL, DEFAULT_API_URL, translate_range
 from .io import build_output_as, read_transcript
 from .langs import is_known_lang, normalise_lang
 from .logging_utils import Logger
@@ -17,7 +17,7 @@ from .version import __version__
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Translate subtitle files using a local llama.cpp server.",
+        description="Translate subtitle files using llama.cpp or DeepSeek.",
     )
     parser.add_argument(
         "--input",
@@ -85,8 +85,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--host",
         dest="api_url",
-        default=DEFAULT_API_URL,
-        help=f"llama.cpp server URL (default: {DEFAULT_API_URL})",
+        default=None,
+        help="llama.cpp or DeepSeek base URL (default: selected backend)",
     )
     parser.add_argument(
         "--model",
@@ -95,7 +95,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--llm-mode",
-        choices=["auto", "generate", "chat"],
+        choices=["auto", "generate", "chat", "deepseek"],
         default="auto",
         help="LLM mode (default: auto)",
     )
@@ -179,6 +179,10 @@ def _resolve_output_path(args: argparse.Namespace, input_path: Path, ext: str) -
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.api_url is None:
+        args.api_url = (
+            DEEPSEEK_API_URL if args.llm_mode == "deepseek" else DEFAULT_API_URL
+        )
 
     input_path = Path(args.input_path).expanduser()
     if not input_path.exists():

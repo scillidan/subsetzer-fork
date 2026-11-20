@@ -47,6 +47,19 @@ class CliTests(unittest.TestCase):
                 call_kwargs = tr_mock.call_args[1]
                 self.assertEqual(call_kwargs["api_url"], "http://myhost:9999")
 
+    def test_deepseek_mode_selects_api_host(self):
+        with mock.patch("subsetzer.cli.translate_range") as tr_mock:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmp_path = Path(tmpdir)
+                infile = tmp_path / "input.srt"
+                infile.write_text("1\n00:00:00,000 --> 00:00:01,000\nHello\n")
+                outp = tmp_path / "out.srt"
+                cli.main(["--input", str(infile), "--output", str(outp),
+                          "--model", "deepseek-flash", "--target", "German",
+                          "--llm-mode", "deepseek", "--no-llm", "--force"])
+                call_kwargs = tr_mock.call_args[1]
+                self.assertEqual(call_kwargs["api_url"], "https://api.deepseek.com")
+
     def test_output_defaults_to_input_dir_with_iso_name(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)

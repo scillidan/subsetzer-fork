@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-informational?style=flat-square)
 
-Translate subtitle files (SRT/VTT/TSV) using a local llama.cpp server. CLI-first, no external dependencies.
+Translate subtitle files (SRT/VTT/TSV) using a local llama.cpp server or DeepSeek. CLI-first, no external dependencies.
 
 Forked and substantially rewritten from the original [subsetzer](https://github.com/githabideri/subsetzer) by Martin Fellner.
 The core translation pipeline (chunking, batch translation, tag protection, cleanup) follows the original design.
@@ -20,6 +20,7 @@ uv tool install -U git+https://github.com/scillidan/subsetzer-fork
 ```bash
 subsetzer-llamacpp --model gemma-3-12b-it --target "Chinese" --input "Movie.en.srt"
 subsetzer-llamacpp --model gemma-3-12b-it --format srt --no-punc --target "Chinese" --input "Movie.en.srt"
+DEEPSEEK_API_KEY=... subsetzer-llamacpp --model deepseek-flash --llm-mode deepseek --no-stream --target "Chinese" --input "Movie.en.srt"
 ```
 
 ## Usage Details
@@ -36,9 +37,11 @@ subsetzer-llamacpp --model gemma-3-12b-it --format srt --no-punc --target "Chine
 
 ### Server & Model
 
-- `--host URL` — llama.cpp server URL (default: `http://127.0.0.1:8080`)
-- `--model NAME` — model tag, required (e.g. `gemma-3-12b-it`)
-- `--llm-mode auto|chat|generate` — API endpoint mode (default: `auto`)
+- `--host URL` — llama.cpp or DeepSeek base URL (default: selected backend)
+- `--model NAME` — model tag, required (e.g. `gemma-3-12b-it`, `deepseek-flash`)
+- `--llm-mode auto|chat|generate|deepseek` — API endpoint mode (default: `auto`)
+  - DeepSeek mode reads `DEEPSEEK_API_KEY`, disables thinking, and retries 429/5xx responses
+  - Optional `DEEPSEEK_BASE_URL` is supported by the context-menu wrapper; direct CLI users can pass `--host`
 
 ### Language
 

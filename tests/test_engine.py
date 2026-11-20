@@ -1,5 +1,6 @@
 import unittest
 from unittest import mock
+from urllib.error import HTTPError
 
 import subsetzer.engine as engine_mod
 from subsetzer.engine import (
@@ -338,6 +339,72 @@ class LlamaCppEndpointTests(unittest.TestCase):
         payload = {"choices": [{"message": {"content": "hello"}}]}
         result = engine_mod._extract_message(payload, generate_mode=False)
         self.assertEqual(result, "hello")
+
+
+class DeepSeekTests(unittest.TestCase):
+    def test_deepseek_request_uses_auth_and_disables_thinking(self):
+        captured = {}
+
+        def fake_http_json(url, payload, timeout, **kwargs):
+            captured.update(url=url, payload=payload, **kwargs)
+            return "Translated text"
+
+        with mock.patch.dict(engine_mod.os.environ, {"DEEPSEEK_API_KEY": "test-key"}), mock.patch(
+            "subsetzer.engine._http_json", side_effect=fake_http_json
+        ):
+            result = engine_mod._perform_llm_call(
+                api_url="https://api.deepseek.com",
+                mode="deepseek",
+                body={"model": "deepseek-flash", "messages": [], "stream": False},
+                generate_prompt="hello",
+                stream=False,
+                timeout=30,
+            )
+
+        self.assertEqual(result, "Translated text")
+        self.assertEqual(captured["url"], "https://api.deepseek.com/chat/completions")
+        self.assertEqual(captured["api_key"], "test-key")
+        self.assertEqual(captured["payload"]["thinking"], {"type": "disabled"})
+
+    def test_deepseek_requires_api_key(self):
+        with mock.patch.dict(engine_mod.os.environ, {"DEEPSEEK_API_KEY": ""}):
+            with self.assertRaisesRegex(engine_mod.LLMError, "DEEPSEEK_API_KEY"):
+                engine_mod._perform_llm_call(
+                    api_url="https://api.deepseek.com",
+                    mode="deepseek",
+                    body={"model": "deepseek-flash", "messages": []},
+                    generate_prompt="hello",
+                    stream=False,
+                    timeout=30,
+                )
+
+    def test_deepseek_retries_rate_limit(self):
+        try:
+            raise HTTPError("https://api.deepseek.com", 429, "rate limited", {}, None)
+        except HTTPError as exc:
+            error = engine_mod.LLMError("rate limited")
+            error.__cause__ = exc
+
+        with mock.patch.dict(engine_mod.os.environ, {"DEEPSEEK_API_KEY": "test-key"}), mock.patch(
+            "subsetzer.engine._http_json", side_effect=[error, "Translated text"]
+        ) as request_mock, mock.patch("subsetzer.engine.time.sleep") as sleep_mock:
+            result = engine_mod._perform_llm_call(
+                api_url="https://api.deepseek.com",
+                mode="deepseek",
+                body={"model": "deepseek-flash", "messages": []},
+                generate_prompt="hello",
+                stream=False,
+                timeout=30,
+            )
+
+        self.assertEqual(result, "Translated text")
+        self.assertEqual(request_mock.call_count, 2)
+        sleep_mock.assert_called_once_with(1)
+
+    def test_truncated_response_is_an_error(self):
+        payload = {"choices": [{"message": {"content": "partial"}, "finish_reason": "length"}]}
+        with self.assertRaisesRegex(engine_mod.LLMError, "truncated"):
+            engine_mod._extract_message(payload)
 
 
 class DefaultServerTest(unittest.TestCase):

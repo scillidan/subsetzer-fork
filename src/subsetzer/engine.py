@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import time
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 DEFAULT_API_URL = "http://127.0.0.1:8080"
+DEEPSEEK_API_URL = "https://api.deepseek.com"
 
 CHAT_ENDPOINT = "/v1/chat/completions"
 GENERATE_ENDPOINT = "/v1/completions"
@@ -73,6 +76,8 @@ def _extract_message(payload: object, *, generate_mode: bool = False) -> str:
     if "choices" in payload:
         try:
             choice = payload["choices"][0]
+            if choice.get("finish_reason") == "length":
+                raise LLMError("LLM response was truncated by the token limit.")
             if generate_mode:
                 text = choice.get("text")
                 if text is not None:
@@ -99,9 +104,13 @@ def _http_json(
     stream: bool,
     generate_mode: bool = False,
     raw_handler: Optional[Callable[[str], None]] = None,
+    api_key: Optional[str] = None,
 ) -> str:
     data = json.dumps(payload).encode("utf-8")
-    req = Request(url, data=data, headers={"Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    req = Request(url, data=data, headers=headers)
     try:
         with urlopen(req, timeout=timeout) as resp:
             if not stream:
@@ -299,6 +308,35 @@ def _perform_llm_call(
         url = api_url.rstrip("/") + GENERATE_ENDPOINT
         return _http_json(url, payload, timeout, stream=stream, generate_mode=True, raw_handler=raw_handler)
 
+    def request_deepseek() -> str:
+        api_key = os.environ.get("DEEPSEEK_API_KEY")
+        if not api_key:
+            raise LLMError("DEEPSEEK_API_KEY is required for DeepSeek mode.")
+        payload = dict(body)
+        payload["thinking"] = {"type": "disabled"}
+        url = api_url.rstrip("/") + "/chat/completions"
+        for attempt in range(3):
+            try:
+                return _http_json(
+                    url,
+                    payload,
+                    timeout,
+                    stream=stream,
+                    raw_handler=raw_handler,
+                    api_key=api_key,
+                )
+            except LLMError as exc:
+                cause = exc.__cause__
+                if isinstance(cause, HTTPError) and not (
+                    cause.code == 429 or cause.code >= 500
+                ):
+                    raise
+                if attempt == 2:
+                    raise
+                time.sleep((1, 3)[attempt])
+
+    if mode == "deepseek":
+        return request_deepseek()
     if mode == "chat":
         return request_chat()
     if mode == "generate":
