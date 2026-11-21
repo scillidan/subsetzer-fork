@@ -3,5 +3,5 @@ revision = 3
 requires-python = ">=3.9"
 
 [[package]]
-name = "subsetzer-llamacpp"
+name = "subsetzer"
 source = { editable = "." }

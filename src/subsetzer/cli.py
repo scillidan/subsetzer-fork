@@ -1,4 +1,4 @@
-"""CLI entry point for subsetzer-llamacpp."""
+"""CLI entry point for subsetzer."""
 from __future__ import annotations
 
 import argparse

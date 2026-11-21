@@ -18,9 +18,9 @@ uv tool install -U git+https://github.com/scillidan/subsetzer-fork
 ## Quickstart
 
 ```bash
-subsetzer-llamacpp --model gemma-3-12b-it --target "Chinese" --input "Movie.en.srt"
-subsetzer-llamacpp --model gemma-3-12b-it --format srt --no-punc --target "Chinese" --input "Movie.en.srt"
-DEEPSEEK_API_KEY=... subsetzer-llamacpp --model deepseek-flash --llm-mode deepseek --no-stream --target "Chinese" --input "Movie.en.srt"
+subsetzer --model gemma-3-12b-it --target "Chinese" --input "Movie.en.srt"
+subsetzer --model gemma-3-12b-it --format srt --no-punc --target "Chinese" --input "Movie.en.srt"
+DEEPSEEK_API_KEY=... subsetzer --model deepseek-flash --llm-mode deepseek --no-stream --target "Chinese" --input "Movie.en.srt"
 ```
 
 ## Usage Details

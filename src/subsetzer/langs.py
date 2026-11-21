@@ -1,4 +1,4 @@
-"""Language code normalisation for subsetzer-llamacpp."""
+"""Language code normalisation for subsetzer."""
 from __future__ import annotations
 
 import re
